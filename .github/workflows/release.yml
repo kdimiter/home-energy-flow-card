@@ -1,8 +1,12 @@
 name: Release
 
+# Publishes a GitHub release (tag v<VERSION> + the card file as an asset) whenever main
+# carries a VERSION that has not been released yet. Bump VERSION + CHANGELOG, push to main.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["dist/home-energy-flow-card.js", "CHANGELOG.md", ".github/workflows/release.yml"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,14 +20,19 @@ jobs:
         with:
           node-version: 22
       - run: npm test
-      - name: Check version matches tag
+      - name: Read version
+        id: v
         run: |
-          v="${GITHUB_REF_NAME#v}"
-          grep -q "const VERSION = '$v'" dist/home-energy-flow-card.js || { echo "VERSION in card != tag $v"; exit 1; }
-      - name: Publish release
+          v=$(sed -nE "s/^const VERSION = '([0-9]+\.[0-9]+\.[0-9]+)';/\1/p" dist/home-energy-flow-card.js)
+          test -n "$v" || { echo "VERSION not found"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Publish release if new
         env:
           GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
         run: |
-          notes=$(awk -v v="## ${GITHUB_REF_NAME#v}" '$0 ~ "^"v {f=1; next} /^## / {f=0} f' CHANGELOG.md)
-          gh release create "$GITHUB_REF_NAME" dist/home-energy-flow-card.js --title "$GITHUB_REF_NAME" --notes "$notes" \
-            || gh release upload "$GITHUB_REF_NAME" dist/home-energy-flow-card.js --clobber
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "v$V already released"; exit 0
+          fi
+          awk -v h="## $V" 'index($0, h) == 1 {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
+          gh release create "v$V" dist/home-energy-flow-card.js --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md
