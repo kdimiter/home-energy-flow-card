@@ -12,7 +12,7 @@ The card always knows *where the power comes from right now*, shows every power 
 
 | Grid | Outage — battery powers the home | Phone |
 |---|---|---|
-| ![Grid mode](images/grid.png) | ![Backup mode](images/backup.png) | ![Mobile, Ukrainian](images/mobile.png) |
+| ![Grid mode](https://raw.githubusercontent.com/kdimiter/home-energy-flow-card/main/images/grid.png) | ![Backup mode](https://raw.githubusercontent.com/kdimiter/home-energy-flow-card/main/images/backup.png) | ![Mobile, Ukrainian](https://raw.githubusercontent.com/kdimiter/home-energy-flow-card/main/images/mobile.png) |
 
 *Screenshots are rendered from demo data.*
 
@@ -45,7 +45,7 @@ HACS registers the dashboard resource for you.
 ### Manual
 
 1. Download `home-energy-flow-card.js` from the [latest release](https://github.com/kdimiter/home-energy-flow-card/releases/latest) into `/config/www/`.
-2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.1.0`, type **JavaScript module**.
+2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.1.1`, type **JavaScript module**.
 3. Reload the browser. When you update the file later, bump `?v=` — Home Assistant serves `/local/` with a long browser cache.
 
 ## Configuration
@@ -155,6 +155,8 @@ python3 demo/shoot.py        # renders images/*.png from demo data (Playwright +
 ---
 
 ## Українською
+
+![Заряд від мережі, українською](https://raw.githubusercontent.com/kdimiter/home-energy-flow-card/main/images/charging-uk.png)
 
 Картка для дому з **реле напруги / лічильником на вводі** (перед усіма споживачами) і **зарядною станцією / ДБЖ / інвертором**, на який **АВР** перекидає всю квартиру при відключенні світла.
 

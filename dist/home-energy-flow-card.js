@@ -1,11 +1,11 @@
 /*!
- * Home Energy Flow Card v2.1.0 — https://github.com/kdimiter/home-energy-flow-card
+ * Home Energy Flow Card v2.1.1 — https://github.com/kdimiter/home-energy-flow-card
  * Source-aware power flow for Home Assistant: an input meter (voltage/energy relay before every load)
  * plus a battery/inverter that takes over the whole home through an ATS during a grid outage.
  * Reads only the hass object Home Assistant passes to the card. No network requests, no storage, no telemetry.
  * MIT License.
  */
-const VERSION = '2.1.0';
+const VERSION = '2.1.1';
 const ID_RE = /^[a-z_]+\.[a-z0-9_]+$/;
 const isId = v => typeof v === 'string' && ID_RE.test(v);
 
