@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home Energy Flow Card — demo</title>
+<style>
+  html,body{margin:0;background:#111722;font-family:Roboto,"Segoe UI",system-ui,sans-serif;
+    --primary-text-color:#eef2f8;--secondary-text-color:#a8b3c4;--ha-card-background:#1a2230;--divider-color:rgba(255,255,255,.12)}
+  #wrap{padding:16px;max-width:var(--w,780px)}
+  ha-card{display:block}
+</style></head>
+<body><div id="wrap"></div>
+<script type="module">
+  import * as mdi from './node_modules/@mdi/js/mdi.js';
+  // Minimal stand-ins for two Home Assistant frontend elements, only for rendering screenshots outside HA.
+  customElements.define('ha-card', class extends HTMLElement {});
+  customElements.define('ha-icon', class extends HTMLElement {
+    set icon(v) { this._icon = v; this.render(); } get icon() { return this._icon; }
+    render() {
+      const key = 'mdi' + String(this._icon || '').replace(/^mdi:/, '').split('-').map(s => s[0].toUpperCase() + s.slice(1)).join('');
+      const size = getComputedStyle(this).getPropertyValue('--mdc-icon-size').trim() || '24px';
+      this.style.display = 'inline-flex';
+      this.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor"><path d="${mdi[key] || mdi.mdiHelpCircleOutline}"/></svg>`;
+    }
+    connectedCallback() { requestAnimationFrame(() => this.render()); }
+  });
+  await import('../dist/home-energy-flow-card.js');
+
+  const q = new URLSearchParams(location.search);
+  const scenario = q.get('s') || 'grid', lang = q.get('lang') || 'en';
+  document.documentElement.style.setProperty('--w', (q.get('w') || 780) + 'px');
+  const P = (v, u = 'W', name) => ({state: String(v), attributes: {device_class: 'power', unit_of_measurement: u, friendly_name: name}});
+  const V = v => ({state: String(v), attributes: {device_class: 'voltage', unit_of_measurement: 'V'}});
+  const N = {en: {heater: 'Water heater', washer: 'Washer', dryer: 'Dryer', dish: 'Dishwasher', fridge: 'Fridge', freezer: 'Freezer', kettle: 'Kettle', tv: 'TV', desk: 'Desk lamp', pc: 'Office PC', line: 'Bedroom circuit', bath: 'Bathroom', kitchen: 'Kitchen', living: 'Living room', office: 'Office'},
+             uk: {heater: 'Бойлер', washer: 'Пральна', dryer: 'Сушка', dish: 'Посудомийка', fridge: 'Холодильник', freezer: 'Морозильник', kettle: 'Чайник', tv: 'Телевізор', desk: 'Настільна лампа', pc: 'Компʼютер', line: 'Лінія спальні', bath: 'Ванна', kitchen: 'Кухня', living: 'Вітальня', office: 'Кабінет'}}[lang];
+  const backup = scenario === 'backup';
+  const states = {
+    'binary_sensor.input_meter': {state: backup ? 'off' : 'on', attributes: {device_class: 'connectivity'}},
+    'sensor.input_power': P(backup ? 0.39 : 3.62, 'kW'),
+    'sensor.input_power_a': P(2.36, 'kW'), 'sensor.input_power_b': P(0.993, 'kW'), 'sensor.input_power_c': P(0.275, 'kW'),
+    'sensor.input_voltage_a': V(228.4), 'sensor.input_voltage_b': V(224.4), 'sensor.input_voltage_c': V(228.9),
+    'sensor.station_ac_in': P(scenario === 'charging' ? 2900 : 0), 'sensor.station_ac_out': P(backup ? 412 : 0),
+    'sensor.station_ac_in_v': V(backup ? 0 : 227), 'sensor.station_ac_out_v': V(229.8), 'sensor.station_solar': P(backup ? 180 : 0),
+    'sensor.station_soc': {state: backup ? '74' : '99', attributes: {device_class: 'battery', unit_of_measurement: '%'}},
+    'sensor.station_status': {state: 'online', attributes: {}},
+    'sensor.station_left': {state: backup ? '612' : '0', attributes: {unit_of_measurement: 'min'}},
+    'sensor.station_full': {state: scenario === 'charging' ? '48' : '0', attributes: {unit_of_measurement: 'min'}},
+    'sensor.bedroom_line_power': P(backup ? 0.064 : 0.133, 'kW', N.line),
+    'sensor.heater_power': P(backup ? 0 : 2430, 'W', N.heater), 'sensor.washer_power': P(0, 'W', N.washer), 'sensor.dryer_power': P(3, 'W', N.dryer),
+    'sensor.dish_power': P(0, 'W', N.dish), 'sensor.fridge_power': P(151, 'W', N.fridge), 'sensor.freezer_power': P(38, 'W', N.freezer),
+    'sensor.kettle_power': P(backup ? 0 : 15, 'W', N.kettle), 'sensor.tv_power': P(backup ? 64 : 92, 'W', N.tv), 'sensor.desk_power': P(backup ? 9 : 0, 'W', N.desk),
+    'sensor.pc_power': P(backup ? 71 : 118, 'W', N.pc),
+  };
+  for (const k of Object.keys(states)) states[k].entity_id = k;
+  const area = {heater: 'bath', washer: 'bath', dryer: 'bath', dish: 'kitchen', fridge: 'kitchen', freezer: 'kitchen', kettle: 'kitchen', tv: 'living', desk: 'living', pc: 'office'};
+  const entities = {'sensor.station_ac_out': {device_id: 'station'}, 'sensor.station_solar': {device_id: 'station'}};
+  for (const [k, a] of Object.entries(area)) entities[`sensor.${k}_power`] = {area_id: a};
+  const hass = {states, entities, devices: {}, language: lang, locale: {language: lang},
+    areas: {bath: {name: N.bath}, kitchen: {name: N.kitchen}, living: {name: N.living}, office: {name: N.office}}};
+  const card = document.createElement('home-energy-flow-card');
+  card.setConfig({
+    grid: {power: 'sensor.input_power', online: 'binary_sensor.input_meter', phases: ['a', 'b', 'c'].map((p, i) => ({name: 'ABC'[i], voltage: `sensor.input_voltage_${p}`, power: `sensor.input_power_${p}`}))},
+    battery: {name: 'PowerStation', ac_in: 'sensor.station_ac_in', ac_out: 'sensor.station_ac_out', soc: 'sensor.station_soc', ac_in_volts: 'sensor.station_ac_in_v',
+      ac_out_volts: 'sensor.station_ac_out_v', solar_in: 'sensor.station_solar', status: 'sensor.station_status', discharge_time: 'sensor.station_left', charge_time: 'sensor.station_full'},
+    circuits: [{entity: 'sensor.bedroom_line_power', children: ['sensor.desk_power']}],
+    sort: 'area',
+  });
+  document.getElementById('wrap').append(card);
+  card.hass = hass;
+  setTimeout(() => { document.body.dataset.ready = '1'; }, 600);
+</script></body></html>
