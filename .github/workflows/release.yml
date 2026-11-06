@@ -1,11 +1,9 @@
 name: Release
 
-# Publishes a GitHub release (tag v<VERSION> + the card file as an asset) whenever main
-# carries a VERSION that has not been released yet. Bump VERSION + CHANGELOG, push to main.
+# Publishes a GitHub release (tag v<VERSION> + the card file as an asset) for the VERSION on main.
+# Run by hand only: changes collect on main under "## Unreleased" in CHANGELOG.md and ship together.
+# To release: rename "## Unreleased" to "## <VERSION>", bump VERSION + package.json, push, run this workflow.
 on:
-  push:
-    branches: [main]
-    paths: ["dist/home-energy-flow-card.js", "CHANGELOG.md", ".github/workflows/release.yml"]
   workflow_dispatch:
 
 permissions:

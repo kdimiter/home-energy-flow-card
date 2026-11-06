@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Logo and GitHub social preview; README leads with installing from the default catalog.
+
 ## 2.3.0
 - Tile and editor names follow the Home Assistant 2026.11 entity naming (device name + entity name) through the frontend's own formatter, so they keep working after the `friendly_name` attribute is retired. Older versions fall back to `friendly_name`, then to the device registry.
 - Install instructions for the built-in Marketplace (Home Assistant 2026.11+), which replaces the HACS add-on.
