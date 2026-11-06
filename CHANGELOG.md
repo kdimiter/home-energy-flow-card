@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+- Tile and editor names follow the Home Assistant 2026.11 entity naming (device name + entity name) through the frontend's own formatter, so they keep working after the `friendly_name` attribute is retired. Older versions fall back to `friendly_name`, then to the device registry.
+- Install instructions for the built-in Marketplace (Home Assistant 2026.11+), which replaces the HACS add-on.
+
 ## 2.2.0
 - Duplicate hardware is recognised by device registry identifiers/connections. A second integration of the same device (Tuya cloud + `tuya_local`, ZHA + Zigbee2MQTT, …) no longer adds the battery output plug, the input meter or a panel circuit to the loads, and a device added twice is shown once.
 - The device group shows how many duplicates were hidden; the measured sum and “Other · unmetered” are no longer inflated by them.

@@ -172,3 +172,15 @@ test('different devices with unrelated identifiers are never merged', () => {
   const ids = discover(normalizeConfig(CFG), hassOf(st, {entities, devices})).map(t => t.id);
   assert.ok(ids.includes('sensor.a_power') && ids.includes('sensor.b_power'));
 });
+
+test('entityLabel follows HA 2026.11 naming and falls back without friendly_name', async () => {
+  const {entityLabel} = await import('../dist/home-energy-flow-card.js');
+  const st = {state: '5', attributes: {unit_of_measurement: 'W'}};
+  const base = {states: {'sensor.w': st}, entities: {'sensor.w': {entity_id: 'sensor.w', device_id: 'd1', name: 'Power'}}, devices: {d1: {id: 'd1', name: 'Washer'}}};
+  assert.equal(entityLabel({...base, formatEntityName: () => 'Washer Power'}, 'sensor.w'), 'Washer');
+  assert.equal(entityLabel({...base, formatEntityName: () => { throw new Error('x'); }}, 'sensor.w'), 'Washer');
+  assert.equal(entityLabel(base, 'sensor.w'), 'Washer');
+  assert.equal(entityLabel({...base, states: {'sensor.w': {...st, attributes: {...st.attributes, friendly_name: 'Old name'}}}}, 'sensor.w'), 'Old name');
+  assert.equal(entityLabel({...base, devices: {d1: {id: 'd1', name: 'Washer', name_by_user: 'Пралка'}}}, 'sensor.w'), 'Пралка');
+  assert.equal(entityLabel({states: {}}, 'sensor.none'), '');
+});

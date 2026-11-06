@@ -1,11 +1,11 @@
 /*!
- * Home Energy Flow Card v2.2.0 — https://github.com/kdimiter/home-energy-flow-card
+ * Home Energy Flow Card v2.3.0 — https://github.com/kdimiter/home-energy-flow-card
  * Source-aware power flow for Home Assistant: an input meter (voltage/energy relay before every load)
  * plus a battery/inverter that takes over the whole home through an ATS during a grid outage.
  * Reads only the hass object Home Assistant passes to the card. No network requests, no storage, no telemetry.
  * MIT License.
  */
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 const ID_RE = /^[a-z_]+\.[a-z0-9_]+$/;
 const isId = v => typeof v === 'string' && ID_RE.test(v);
 
@@ -137,6 +137,16 @@ const VCOL = {ok: '#26c281', warn: '#f5b041', bad: '#e74c3c', na: '#8fa0b8'};
 const voltClass = v => v === null ? 'na' : (v < 205 || v > 245) ? 'bad' : (v < 215 || v > 240) ? 'warn' : 'ok';
 const hash = s => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); };
 const strip = n => String(n || '').replace(/\s+(живлення|потужність|споживання|power|consumption)$/i, '').trim();
+/* Display name of an entity. HA 2026.11 builds names from device + entity parts and plans to drop
+   the friendly_name attribute, so ask the frontend first and keep the old paths as fallbacks. */
+export function entityLabel(hass, id) {
+  const s = hass?.states?.[id], r = hass?.entities?.[id], dev = hass?.devices?.[r?.device_id];
+  let n = '';
+  if (s && typeof hass?.formatEntityName === 'function') { try { n = hass.formatEntityName(s); } catch (e) { n = ''; } }
+  if (!n || typeof n !== 'string') n = s?.attributes?.friendly_name || '';
+  if (!n && r) n = [dev?.name_by_user || dev?.name, r.name].filter(Boolean).join(' ');
+  return strip(n) || dev?.name_by_user || dev?.name || '';
+}
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 function optId(v, key) {
   if (v === undefined || v === null || v === '') return null;
@@ -226,7 +236,7 @@ export function discover(cfg, hass) {
   const skip = new Set([...src, ...cfg.exclude]);
   const meta = (id, o = {}) => {
     const s = st[id], r = reg[id], dev = devs[r?.device_id];
-    const name = o.name || strip(s?.attributes?.friendly_name) || dev?.name_by_user || dev?.name || id;
+    const name = o.name || entityLabel(hass, id) || id;
     const area = areas[r?.area_id || dev?.area_id]?.name || '';
     const icon = o.icon || r?.icon || s?.attributes?.icon || (ICON_RULES.find(([re]) => re.test(name)) || [null, 'mdi:power-plug'])[1];
     const color = HEX_RE.test(o.color || '') ? o.color : PALETTE[hash(id) % PALETTE.length];
@@ -269,7 +279,7 @@ export function discover(cfg, hass) {
   tiles.hidden = hidden;
   for (const id of ids) {
     const p = parentOf.get(id) || null;
-    tiles.push({...meta(id, cfg.devices[id]), kind: 'device', counted: !p, parent: p ? (p.name || strip(st[p.entity]?.attributes?.friendly_name)) : null});
+    tiles.push({...meta(id, cfg.devices[id]), kind: 'device', counted: !p, parent: p ? (p.name || entityLabel(hass, p.entity)) : null});
   }
   return tiles;
 }
@@ -440,8 +450,7 @@ export function editorSchema(form, hass, i) {
     field('exclude', powerMulti, t('e_exclude')),
     field('circuits', powerMulti, t('e_circuits')),
   ];
-  const st = hass?.states || {};
-  const label = id => strip(st[id]?.attributes?.friendly_name) || id;
+  const label = id => entityLabel(hass, id) || id;
   for (const id of form.circuits || []) {
     devSchema.push(exp(`cir_${id}`, t('e_circuit', {n: form[`cir|${id}|name`] || label(id)}), [
       field(`cir|${id}|name`, {text: {}}, t('e_circuit_name')),

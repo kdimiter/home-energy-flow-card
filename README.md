@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![HACS / Marketplace](https://img.shields.io/badge/HACS%20%2F%20Marketplace-Dashboard-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 [![Release](https://img.shields.io/github/v/release/kdimiter/home-energy-flow-card)](https://github.com/kdimiter/home-energy-flow-card/releases)
 [![Validate](https://github.com/kdimiter/home-energy-flow-card/actions/workflows/validate.yml/badge.svg)](https://github.com/kdimiter/home-energy-flow-card/actions/workflows/validate.yml)
 
@@ -30,23 +30,25 @@ The card always knows *where the power comes from right now*, shows every power 
 
 ## Installation
 
-### HACS (recommended)
+### Marketplace (Home Assistant 2026.11+) / HACS (recommended)
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kdimiter&repository=home-energy-flow-card&category=plugin)
+Since 2026.11 HACS is built into Home Assistant as **Settings → Marketplace**; older versions use the HACS add-on. The steps are the same in both.
 
-Or manually in HACS:
+[![Open your Home Assistant instance and open this repository.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kdimiter&repository=home-energy-flow-card&category=plugin)
 
-1. **HACS → ⋮ → Custom repositories**.
+Or add it by hand:
+
+1. **Settings → Marketplace → ⋮ → Add from link** (in HACS: **HACS → ⋮ → Custom repositories**).
 2. Repository: `https://github.com/kdimiter/home-energy-flow-card`, type **Dashboard**, then **Add**.
 3. Open **Home Energy Flow Card** → **Download**.
 4. Reload the browser (in the Companion app use **Reset frontend cache** in the app settings).
 
-HACS registers the dashboard resource for you.
+The Marketplace registers the dashboard resource for you (`/local/community/home-energy-flow-card/home-energy-flow-card.js`).
 
 ### Manual
 
 1. Download `home-energy-flow-card.js` from the [latest release](https://github.com/kdimiter/home-energy-flow-card/releases/latest) into `/config/www/`.
-2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.2.0`, type **JavaScript module**.
+2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.3.0`, type **JavaScript module**.
 3. Reload the browser. When you update the file later, bump `?v=` — Home Assistant serves `/local/` with a long browser cache.
 
 ## Configuration
@@ -181,9 +183,9 @@ python3 demo/shoot.py        # renders images/*.png from demo data (Playwright +
 - **Візуальний редактор.** Сутності, фази, батарея, автоматичний чи ручний вибір приладів, лінії, а також назва, іконка й колір кожного приладу. YAML теж працює.
 - **Мова інтерфейсу** — українська або англійська, за мовою профілю Home Assistant.
 
-**Встановлення через HACS:**
+**Встановлення через Marketplace (Home Assistant 2026.11+) або HACS:**
 
-1. **HACS → ⋮ → Custom repositories**.
+1. **Налаштування → Marketplace → ⋮ → Add from link** (у HACS: **HACS → ⋮ → Custom repositories**).
 2. Додайте `https://github.com/kdimiter/home-energy-flow-card`, тип **Dashboard**.
 3. Відкрийте картку → **Download**.
 4. Оновіть сторінку з очищенням кешу (Ctrl+Shift+R).
