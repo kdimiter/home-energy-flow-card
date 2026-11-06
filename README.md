@@ -22,6 +22,7 @@ The card always knows *where the power comes from right now*, shows every power 
 - **Correct home consumption in both modes.** On grid: *input meter − battery charging* (the battery charges behind the meter). On backup: *battery AC output*, with an optional fallback meter (e.g. a smart plug on the battery output) if the battery itself is offline.
 - **Phases.** Up to three phases with voltage health colours (green 215–240 V, amber, red below 205 / above 245 V) and per-phase power.
 - **Unlimited devices, auto-discovered.** Every `sensor` with `device_class: power` (W or kW) becomes a tile. Source devices, hidden and diagnostic entities are skipped. Add or hide devices manually when you need to.
+- **No duplicates from a second integration.** When the same hardware is added twice (Tuya cloud + `tuya_local`, ZHA + Zigbee2MQTT, …), the card matches the devices by their registry identifiers: copies of the input meter, the battery or its output meter never show up as loads, copies of a panel circuit are hidden, and a device added twice is shown once (the copy you configured, otherwise the one that is online). The device group shows how many duplicates were hidden.
 - **Panel circuits.** A meter that measures a whole line (an RCBO with metering, a DIN-rail meter) is shown as a circuit; meters behind it can be nested so they are displayed but never counted twice.
 - **“Other · unmetered”** — what the meters don't explain, with a warning when the meters add up to more than the input.
 - **Visual editor.** Configure everything in the UI — entities, phases, battery, auto/manual device selection, circuits, and a label, icon and colour per device. YAML works too.
@@ -45,7 +46,7 @@ HACS registers the dashboard resource for you.
 ### Manual
 
 1. Download `home-energy-flow-card.js` from the [latest release](https://github.com/kdimiter/home-energy-flow-card/releases/latest) into `/config/www/`.
-2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.1.1`, type **JavaScript module**.
+2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/home-energy-flow-card.js?v=2.2.0`, type **JavaScript module**.
 3. Reload the browser. When you update the file later, bump `?v=` — Home Assistant serves `/local/` with a long browser cache.
 
 ## Configuration
@@ -136,7 +137,8 @@ The card is a single static JavaScript file. It **only reads** the `hass` object
 ## Troubleshooting
 
 - **“Configuration error” right after an update** — the browser still runs the old file. Hard-reload (Ctrl+Shift+R), or reset the frontend cache in the Companion app.
-- **A device is missing** — the sensor needs `device_class: power` and unit `W`/`kW`. Otherwise add it under `include`.
+- **A device is missing** — the sensor needs `device_class: power` and unit `W`/`kW`. Otherwise add it under `include`. A sensor on the same hardware as a source or a circuit is treated as a duplicate; `include` it to show it anyway.
+- **The battery or the input meter appears among the loads** — update to 2.2.0 or later; earlier versions did not recognise a second integration of the same hardware.
 - **“Meters exceed input”** — a meter sits behind another one (add it to that circuit's `children`) or meters update at different moments.
 - **Card stays on “Grid” during an outage** — check that `battery.ac_out` really reports the output power, or lower `backup_threshold`.
 
@@ -168,6 +170,12 @@ python3 demo/shoot.py        # renders images/*.png from demo data (Playwright +
   - На резерві: *вихід батареї*; якщо сама батарея офлайн — запасний лічильник, наприклад розетка на виході.
 - **До трьох фаз** з контролем напруги.
 - **Прилади без обмеження кількості.** Картка автоматично знаходить усі сенсори з `device_class: power` (Вт/кВт). Прилади можна також додавати чи ховати вручну.
+- **Без дублікатів від другої інтеграції.** Якщо той самий пристрій заведено двічі (Tuya cloud + `tuya_local`, ZHA + Zigbee2MQTT тощо), картка зіставляє пристрої за їхніми ідентифікаторами в реєстрі:
+  - копії реле на вводі, батареї чи розетки на її виході не потрапляють у споживачі;
+  - копії лінії щита ховаються;
+  - прилад, заведений двічі, показується один раз.
+
+  Кількість прихованих дублікатів видно в заголовку групи.
 - **Лінії щита з вкладеними лічильниками**: вкладені показуються, але не рахуються двічі.
 - **Плитка «Інше · без лічильника»** — споживання, яке не покриває жоден лічильник.
 - **Візуальний редактор.** Сутності, фази, батарея, автоматичний чи ручний вибір приладів, лінії, а також назва, іконка й колір кожного приладу. YAML теж працює.

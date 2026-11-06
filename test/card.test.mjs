@@ -123,3 +123,52 @@ test('stub config picks plausible entities and always loads', () => {
 test('units: W and kW only; negative power ignored for loads', () => {
   assert.equal(toWatts(P(1.5, 'kW')), 1500); assert.equal(toWatts(S('5', {unit_of_measurement: 'A'})), null); assert.equal(toWatts(P(-3)), null);
 });
+
+test('twins of sources and circuits (same hardware, second integration) are not shown as loads', () => {
+  const st = base();
+  Object.assign(st, withIds({
+    'sensor.cloud_plug_power': P(396),            // cloud copy of the battery output plug
+    'sensor.cloud_meter_phase_a_power': S('unavailable', {device_class: 'power', unit_of_measurement: 'kW'}), // cloud copy of the input meter
+    'sensor.cloud_breaker_power': P(0.111, 'kW'), // cloud copy of the circuit meter
+  }));
+  const entities = {...REG,
+    'sensor.bat_out_plug': {device_id: 'plug_local'}, 'sensor.cloud_plug_power': {device_id: 'plug_cloud'},
+    'sensor.cloud_meter_phase_a_power': {device_id: 'relay_cloud'},
+    'sensor.line_room': {device_id: 'rcbo_local'}, 'sensor.cloud_breaker_power': {device_id: 'rcbo_cloud'},
+  };
+  const devices = {h: {name: 'Heater'},
+    plug_local: {identifiers: [['tuya_local', 'bf683772af4b2805dcrlz1']]}, plug_cloud: {identifiers: [['tuya', 'bf683772af4b2805dcrlz1']]},
+    relay: {identifiers: [['tuya_local', 'bf242a2e1022f8a654fkex']]}, relay_cloud: {identifiers: [['tuya', 'bf242a2e1022f8a654fkex']]},
+    rcbo_local: {identifiers: [['tuya_local', 'bfb1e681e5b012ee31w6es']]}, rcbo_cloud: {identifiers: [['tuya', 'bfb1e681e5b012ee31w6es']]},
+  };
+  const cfg = normalizeConfig(CFG), tiles = discover(cfg, hassOf(st, {entities, devices}));
+  const ids = tiles.map(t => t.id);
+  for (const id of ['sensor.cloud_plug_power', 'sensor.cloud_meter_phase_a_power', 'sensor.cloud_breaker_power']) assert.ok(!ids.includes(id), id);
+  assert.equal(tiles.hidden, 3);
+  const f = computeFlow(cfg, st, tiles);
+  assert.equal(f.measured, 135 + 2485 + 141 + 0, 'balance is not inflated by twins');   // circuit + heater + fridge (lamp nested)
+});
+
+test('a device added twice (ZHA + Zigbee2MQTT) shows once; the configured / online copy wins', () => {
+  const st = base();
+  Object.assign(st, withIds({'sensor.kettle_zha_power': P(15), 'sensor.kettle_z2m_power': P(15)}));
+  const entities = {...REG, 'sensor.kettle_zha_power': {device_id: 'k_zha'}, 'sensor.kettle_z2m_power': {device_id: 'k_z2m'}};
+  const devices = {h: {name: 'Heater'}, k_zha: {identifiers: [['zha', 'a4:c1:38:e7:68:87:e2:15']]}, k_z2m: {identifiers: [['mqtt', 'zigbee2mqtt_0xa4c138e76887e215']]}};
+  const h = hassOf(st, {entities, devices});
+  let ids = discover(normalizeConfig(CFG), h).map(t => t.id);
+  assert.equal(ids.filter(i => i.startsWith('sensor.kettle_')).length, 1);
+  ids = discover(normalizeConfig({...CFG, devices: {'sensor.kettle_z2m_power': {name: 'Kettle'}}}), h).map(t => t.id);
+  assert.ok(ids.includes('sensor.kettle_z2m_power') && !ids.includes('sensor.kettle_zha_power'), 'configured copy kept');
+  st['sensor.kettle_z2m_power'] = {...S('unavailable', {device_class: 'power', unit_of_measurement: 'W'}), entity_id: 'sensor.kettle_z2m_power'};
+  ids = discover(normalizeConfig(CFG), hassOf(st, {entities, devices})).map(t => t.id);
+  assert.ok(ids.includes('sensor.kettle_zha_power') && !ids.includes('sensor.kettle_z2m_power'), 'online copy kept');
+});
+
+test('different devices with unrelated identifiers are never merged', () => {
+  const st = base();
+  Object.assign(st, withIds({'sensor.a_power': P(10), 'sensor.b_power': P(20)}));
+  const entities = {...REG, 'sensor.a_power': {device_id: 'a'}, 'sensor.b_power': {device_id: 'b'}};
+  const devices = {h: {name: 'Heater'}, a: {identifiers: [['tuya', 'aaaaaaaaaaaaaaaa']]}, b: {identifiers: [['tuya', 'bbbbbbbbbbbbbbbb']], connections: [['mac', '00:11:22:33:44:55']]}};
+  const ids = discover(normalizeConfig(CFG), hassOf(st, {entities, devices})).map(t => t.id);
+  assert.ok(ids.includes('sensor.a_power') && ids.includes('sensor.b_power'));
+});

@@ -1,11 +1,11 @@
 /*!
- * Home Energy Flow Card v2.1.1 — https://github.com/kdimiter/home-energy-flow-card
+ * Home Energy Flow Card v2.2.0 — https://github.com/kdimiter/home-energy-flow-card
  * Source-aware power flow for Home Assistant: an input meter (voltage/energy relay before every load)
  * plus a battery/inverter that takes over the whole home through an ATS during a grid outage.
  * Reads only the hass object Home Assistant passes to the card. No network requests, no storage, no telemetry.
  * MIT License.
  */
-const VERSION = '2.1.1';
+const VERSION = '2.2.0';
 const ID_RE = /^[a-z_]+\.[a-z0-9_]+$/;
 const isId = v => typeof v === 'string' && ID_RE.test(v);
 
@@ -25,7 +25,7 @@ const STRINGS = {
     phase: 'Phase {p}', out: '{b} output', soc: 'Charge', time_na: 'time —', grid_in: 'Grid input', relay_off: 'input meter de-energised',
     home: 'Home consumption', base_grid: 'input − {b} charging', base_backup: '{b} output via ATS', base_unknown: 'source unknown',
     no_meter_data: '{base} · meters have no data', measured: '{base} · measured {m}{pct} · {k} of {n}',
-    circuits: 'Panel circuits', devices: 'Device meters · {n}', other: 'Other · unmetered', other_meta: 'lights, outlets, router…',
+    circuits: 'Panel circuits', devices: 'Device meters · {n}', dups: ' · {n} duplicates hidden', other: 'Other · unmetered', other_meta: 'lights, outlets, router…',
     other_over: 'meters exceed input by {w}', in_line: 'on «{p}»', whole_line: 'whole circuit', no_data: 'no data', open: 'Open details',
     note_backup: 'During an outage the ATS moves the whole home to {b}: consumption = {b} output. Input meter readings are ignored.',
     note_grid: 'Consumption = input meter minus {b} charging. «Other» is load without its own meter.',
@@ -66,7 +66,7 @@ const STRINGS = {
     phase: 'Фаза {p}', out: 'Вихід {b}', soc: 'Заряд', time_na: 'час —', grid_in: 'Вхід мережі', relay_off: 'реле знеструмлене',
     home: 'Споживання квартири', base_grid: 'ввід − заряд {b}', base_backup: 'вихід {b} через АВР', base_unknown: 'джерело невідоме',
     no_meter_data: '{base} · лічильники без даних', measured: '{base} · виміряно {m}{pct} · {k} із {n}',
-    circuits: 'Лінії щита', devices: 'Лічильники приладів · {n}', other: 'Інше · без лічильника', other_meta: 'світло, розетки, роутер…',
+    circuits: 'Лінії щита', devices: 'Лічильники приладів · {n}', dups: ' · приховано дублікатів: {n}', other: 'Інше · без лічильника', other_meta: 'світло, розетки, роутер…',
     other_over: 'лічильники > вводу на {w}', in_line: 'у лінії «{p}»', whole_line: 'вимір усієї лінії', no_data: 'немає даних', open: 'Відкрити деталі',
     note_backup: 'Під час відключення АВР перекидає всю квартиру на {b}: споживання = вихід {b}. Покази реле на вводі ігноруються.',
     note_grid: 'Споживання = реле напруги на вводі мінус заряд {b}. «Інше» — навантаження без власного лічильника.',
@@ -198,11 +198,29 @@ export function isPowerSensor(s) {
   return !!s && s.entity_id?.startsWith('sensor.') && s.attributes?.device_class === 'power' && ['W', 'kW'].includes(s.attributes?.unit_of_measurement);
 }
 
+/* One physical device is often added by two integrations (Tuya cloud + tuya_local, ZHA + Zigbee2MQTT, …).
+ * Their device registry entries then share an identifier / connection value — normalise it to compare. */
+export function physicalKeys(dev) {
+  const out = new Set();
+  for (const pair of [...(Array.isArray(dev?.identifiers) ? dev.identifiers : []), ...(Array.isArray(dev?.connections) ? dev.connections : [])]) {
+    const v = Array.isArray(pair) ? pair[1] : null;
+    if (typeof v !== 'string') continue;
+    const k = v.toLowerCase().replace(/^zigbee2mqtt_/, '').replace(/^0x/, '').replace(/[\s:._-]/g, '');
+    if (k.length >= 8) out.add(k);
+  }
+  return out;
+}
+
 /* Tiles = circuits + discovered/included device meters. `counted` tiles make up the measured sum. */
 export function discover(cfg, hass) {
   const st = hass?.states || {}, reg = hass?.entities || {}, devs = hass?.devices || {}, areas = hass?.areas || {};
   const src = sourceIds(cfg);
-  const srcDevices = new Set(src.map(id => reg[id]?.device_id).filter(Boolean));
+  const keyCache = new Map();
+  const keysOf = did => { if (!did) return new Set(); if (!keyCache.has(did)) keyCache.set(did, physicalKeys(devs[did])); return keyCache.get(did); };
+  const hwOf = ids => { const d = new Set(), k = new Set(); for (const id of ids) { const did = reg[id]?.device_id; if (did) { d.add(did); keysOf(did).forEach(x => k.add(x)); } } return {d, k}; };
+  const sameHw = (did, hw) => !!did && (hw.d.has(did) || [...keysOf(did)].some(x => hw.k.has(x)));
+  const srcHw = hwOf(src);                                   // input meter, battery, output plug — and their twins
+  const circuitHw = hwOf(cfg.circuits.map(c => c.entity));    // a whole-line meter is already shown as a circuit
   const circuitIds = new Set(cfg.circuits.map(c => c.entity));
   const parentOf = new Map(); cfg.circuits.forEach(c => c.children.forEach(ch => parentOf.set(ch, c)));
   const skip = new Set([...src, ...cfg.exclude]);
@@ -215,17 +233,40 @@ export function discover(cfg, hass) {
     return {id, name, area, icon, color};
   };
   const tiles = cfg.circuits.filter(c => st[c.entity]).map(c => ({...meta(c.entity, {...cfg.devices[c.entity], name: c.name || cfg.devices[c.entity]?.name, icon: c.icon, color: c.color || cfg.devices[c.entity]?.color}), kind: 'circuit', counted: true, parent: null}));
-  const ids = [];
+  const manual = new Set([...cfg.include, ...Object.keys(cfg.devices)]);
+  let found = [], hidden = 0;
   if (cfg.discover) {
     for (const id of Object.keys(st)) {
       if (skip.has(id) || circuitIds.has(id) || !isPowerSensor(st[id])) continue;
       const r = reg[id];
       if (r?.hidden || r?.entity_category) continue;
-      if (r?.device_id && srcDevices.has(r.device_id)) continue;
-      ids.push(id);
+      const did = r?.device_id;
+      if (sameHw(did, srcHw) || sameHw(did, circuitHw)) { if (!srcHw.d.has(did) && !circuitHw.d.has(did)) hidden++; continue; }   // count twins only
+      found.push(id);
     }
+    // Twins among the remaining meters: keep one device per physical device.
+    const byDev = new Map();
+    for (const id of found) { const did = reg[id]?.device_id; if (did) (byDev.get(did) || byDev.set(did, []).get(did)).push(id); }
+    const dids = [...byDev.keys()].sort(), drop = new Set(), seen = new Set();
+    const live = id => !['unavailable', 'unknown'].includes(st[id]?.state);
+    for (const did of dids) {
+      if (seen.has(did)) continue;
+      const group = [did];
+      for (let i = 0; i < group.length; i++) for (const other of dids) {
+        if (!seen.has(other) && !group.includes(other) && [...keysOf(group[i])].some(x => keysOf(other).has(x))) group.push(other);
+      }
+      group.forEach(d => seen.add(d));
+      if (group.length < 2) continue;
+      const score = d => (byDev.get(d).some(id => manual.has(id)) ? 1000 : 0) + byDev.get(d).filter(live).length;
+      const keep = group.reduce((a, b) => score(b) > score(a) ? b : a);
+      group.filter(d => d !== keep).forEach(d => byDev.get(d).forEach(id => drop.add(id)));
+    }
+    hidden += drop.size;
+    found = found.filter(id => !drop.has(id));
   }
+  const ids = found;
   for (const id of cfg.include) if (st[id] && !ids.includes(id) && !circuitIds.has(id) && !skip.has(id)) ids.push(id);
+  tiles.hidden = hidden;
   for (const id of ids) {
     const p = parentOf.get(id) || null;
     tiles.push({...meta(id, cfg.devices[id]), kind: 'device', counted: !p, parent: p ? (p.name || strip(st[p.entity]?.attributes?.friendly_name)) : null});
@@ -606,7 +647,7 @@ export class HomeEnergyFlowCard extends Base {
       this._groups.append(el('div', 'group', t('circuits')));
       const g = el('div', 'tiles'); circuits.forEach(x => g.append(mk(x).wrap)); this._groups.append(g);
     }
-    this._groups.append(el('div', 'group', t('devices', {n: devices.length})));
+    this._groups.append(el('div', 'group', t('devices', {n: devices.length}) + (this._tiles.hidden ? t('dups', {n: this._tiles.hidden}) : '')));
     this._devGrid = el('div', 'tiles'); devices.forEach(x => this._devGrid.append(mk(x).wrap));
     this._other = mk({id: '__other', kind: 'other', name: t('other'), icon: 'mdi:dots-horizontal-circle-outline', color: '#8fa0b8'});
     this._devGrid.append(this._other.wrap); this._groups.append(this._devGrid);
@@ -617,7 +658,8 @@ export class HomeEnergyFlowCard extends Base {
     const cmp = by === 'power' ? (a, b) => (values?.get(b.id) ?? -1) - (values?.get(a.id) ?? -1) || coll.compare(a.name, b.name)
       : by === 'name' ? (a, b) => coll.compare(a.name, b.name)
       : (a, b) => coll.compare(a.area || '￿', b.area || '￿') || coll.compare(a.name, b.name);
-    return [...cir, ...dev.sort(cmp)];
+    const out = [...cir, ...dev.sort(cmp)]; out.hidden = tiles.hidden || 0;
+    return out;
   }
   _render() {
     if (!this._cfg || !this._hass) return;
@@ -631,7 +673,7 @@ export class HomeEnergyFlowCard extends Base {
     }
     const f = computeFlow(cfg, st, this._tiles);
     if (cfg.sort === 'power') this._tiles = this._sortTiles(this._tiles, f.values);
-    const key = this._tiles.map(x => x.id + '|' + x.name + '|' + x.icon + '|' + x.color + '|' + x.area + '|' + x.parent).join(',');
+    const key = this._tiles.map(x => x.id + '|' + x.name + '|' + x.icon + '|' + x.color + '|' + x.area + '|' + x.parent).join(',') + '#' + (this._tiles.hidden || 0);
     if (key !== this._tileKey) {
       if (cfg.sort === 'power' && this._tileKey && this._tileKey.split(',').sort().join() === key.split(',').sort().join()) {
         this._tiles.filter(x => x.kind === 'device').forEach(x => this._devGrid.insertBefore(this._nodes.get(x.id).wrap, this._other.wrap));

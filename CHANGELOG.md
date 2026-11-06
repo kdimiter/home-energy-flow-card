@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.0
+- Duplicate hardware is recognised by device registry identifiers/connections. A second integration of the same device (Tuya cloud + `tuya_local`, ZHA + Zigbee2MQTT, …) no longer adds the battery output plug, the input meter or a panel circuit to the loads, and a device added twice is shown once.
+- The device group shows how many duplicates were hidden; the measured sum and “Other · unmetered” are no longer inflated by them.
+- Verified on Home Assistant 2026.11.
+
 ## 2.1.1
 - README images use absolute URLs so they render inside HACS.
 - Releases are published only after HACS validation and unit tests pass.
