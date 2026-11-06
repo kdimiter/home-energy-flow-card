@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17263d"/>
+      <stop offset="1" stop-color="#0a101c"/>
+    </linearGradient>
+    <linearGradient id="house" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#21436b"/>
+      <stop offset="1" stop-color="#16304f"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
+  <!-- grid feed (left, blue) -->
+  <circle cx="42" cy="166" r="17" fill="#0ea5e9" fill-opacity=".18" stroke="#38bdf8" stroke-width="5"/>
+  <path d="M45 154 L36 168 H44 L40 179 L50 163 H42 Z" fill="#38bdf8"/>
+  <path d="M64 166 H80" stroke="#38bdf8" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 10"/>
+  <!-- battery feed (right, amber) -->
+  <rect x="198" y="140" width="30" height="50" rx="7" fill="#f59e0b" fill-opacity=".15" stroke="#fbbf24" stroke-width="5"/>
+  <rect x="207" y="131" width="12" height="7" rx="2.5" fill="#fbbf24"/>
+  <rect x="204.5" y="160" width="17" height="23.5" rx="3" fill="#fbbf24"/>
+  <path d="M176 166 H190" stroke="#fbbf24" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 10"/>
+  <!-- house -->
+  <path d="M128 60 L174 102 V192 a10 10 0 0 1 -10 10 H92 a10 10 0 0 1 -10 -10 V102 Z" fill="url(#house)" stroke="#e2e8f0" stroke-width="8" stroke-linejoin="round"/>
+  <!-- bolt -->
+  <path d="M136 98 L104 148 H126 L118 184 L154 128 H131 Z" fill="#facc15" stroke="#fef08a" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>
